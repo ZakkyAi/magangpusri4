@@ -1,54 +1,65 @@
 const express = require('express');
 const mysql = require('mysql');
-const bodyParser = require('body-parser');
-const cors = require('cors');
+const cors = require('cors'); // To handle CORS issues
 
 const app = express();
-app.use(cors());
-app.use(bodyParser.json());
+const port = 3000;
 
-// MySQL connection
-const db = mysql.createConnection({
+// MySQL connection setup
+const connection = mysql.createConnection({
   host: 'localhost',
-  user: 'root',     // Replace with your MySQL username
-  password: '', // Replace with your MySQL password
-  database: 'drawing_app'    // Replace with your database name
+  user: 'root',
+  password: '',
+  database: 'drawing_app'
 });
 
-db.connect(err => {
+// Connect to MySQL database
+connection.connect((err) => {
   if (err) {
     console.error('Error connecting to the database:', err);
-  } else {
-    console.log('Connected to MySQL database');
+    return;
   }
+  console.log('Connected to the database');
 });
 
-// API route to save shapes
-app.post('/api/shapes', (req, res) => {
-  const { user_id, name, data } = req.body;
-  const query = 'INSERT INTO drawings (user_id, name, data) VALUES (?, ?, ?)';
-  db.query(query, [user_id, name, JSON.stringify(data)], (err, result) => {
+// Middleware
+app.use(cors()); // Allow cross-origin requests
+
+// Endpoint to get all databases
+app.get('/api/databases', (req, res) => {
+  connection.query('SHOW DATABASES', (err, results) => {
     if (err) {
-      res.status(500).json({ error: err });
+      res.status(500).send('Error fetching databases');
     } else {
-      res.status(200).json({ message: 'Drawing saved successfully', drawingId: result.insertId });
+      res.json(results);
     }
   });
 });
 
-// API route to get the latest drawing
-app.get('/api/shapes', (req, res) => {
-  const query = 'SELECT * FROM drawings ORDER BY id DESC LIMIT 1';
-  db.query(query, (err, result) => {
+// Endpoint to get all tables in the drawing_app database
+app.get('/api/tables', (req, res) => {
+  connection.query('SHOW TABLES', (err, results) => {
     if (err) {
-      res.status(500).json({ error: err });
+      res.status(500).send('Error fetching tables');
     } else {
-      res.status(200).json({ shapes: JSON.parse(result[0].data) });
+      res.json(results);
     }
   });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+// Endpoint to get columns of a specific table
+app.get('/api/table-columns/:tableName', (req, res) => {
+  const tableName = req.params.tableName;
+  connection.query(`DESCRIBE ${tableName}`, (err, results) => {
+    if (err) {
+      res.status(500).send('Error fetching table columns');
+    } else {
+      res.json(results);
+    }
+  });
+});
+
+// Start the server
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
